@@ -24,7 +24,6 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  Checkbox,
   Menu,
   MenuItem,
   Button,
@@ -46,6 +45,7 @@ export default function SpecialistsPage() {
   const debouncedSearch = useDebounce(searchTerm, 500);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedId, setSelectedId] = useState<string>('');
+  const [specialistData, setSpecialistData] = useState<Record<string, { purchases: number; duration: number }>>({});
 
   useEffect(() => {
     dispatch(fetchSpecialists(filters));
@@ -54,6 +54,20 @@ export default function SpecialistsPage() {
   useEffect(() => {
     dispatch(setFilters({ search: debouncedSearch, page: 1 }));
   }, [debouncedSearch, dispatch]);
+
+  // Initialize specialist data with mock values
+  useEffect(() => {
+    const data: Record<string, { purchases: number; duration: number }> = {};
+    specialists.forEach((specialist) => {
+      if (!specialistData[specialist.id]) {
+        data[specialist.id] = {
+          purchases: Math.floor(Math.random() * 1000),
+          duration: Math.floor(Math.random() * 14) + 1,
+        };
+      }
+    });
+    setSpecialistData((prev) => ({ ...prev, ...data }));
+  }, [specialists]);
 
   const handleStatusFilter = (status?: SpecialistStatus) => {
     dispatch(setFilters({ status, page: 1 }));
@@ -226,9 +240,6 @@ export default function SpecialistsPage() {
                 <Table sx={{ width: '100%', minWidth: { xs: 600, md: 'auto' } }}>
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#F8FAFC' }}>
-                      <TableCell padding="checkbox" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                        <Checkbox sx={{ color: '#94A3B8' }} />
-                      </TableCell>
                       <TableCell sx={{ fontWeight: 600, color: '#475569', fontSize: { xs: '10px', md: '12px' }, textTransform: 'uppercase' }}>
                         SERVICE
                       </TableCell>
@@ -261,18 +272,15 @@ export default function SpecialistsPage() {
                           borderBottom: '1px solid #F1F5F9',
                         }}
                       >
-                        <TableCell padding="checkbox">
-                          <Checkbox sx={{ color: '#94A3B8' }} />
-                        </TableCell>
                         <TableCell sx={{ color: '#0F172A', fontWeight: 500 }}>
                           {specialist.name}
                         </TableCell>
                         <TableCell sx={{ color: '#475569' }}>RM 2,000</TableCell>
                         <TableCell sx={{ color: '#475569' }}>
-                          {Math.floor(Math.random() * 1000)}
+                          {specialistData[specialist.id]?.purchases || 0}
                         </TableCell>
                         <TableCell sx={{ color: '#475569' }}>
-                          {Math.floor(Math.random() * 14) + 1} Days
+                          {specialistData[specialist.id]?.duration || 0} Days
                         </TableCell>
                         <TableCell>
                           <Chip

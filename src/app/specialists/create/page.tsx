@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppDispatch } from '@/store/hooks';
 import { createSpecialist } from '@/store/slices/specialistSlice';
-import { CreateSpecialistDto } from '@/types/specialist.types';
+import { CreateSpecialistDto, ServiceOffering } from '@/types/specialist.types';
 import {
   Box,
   Typography,
@@ -18,10 +18,20 @@ import {
   DialogTitle,
   DialogContent,
   Grid,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   CloudUpload as UploadIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
 
 export default function CreateSpecialistPage() {
@@ -38,11 +48,10 @@ export default function CreateSpecialistPage() {
   });
 
   const [openServiceModal, setOpenServiceModal] = useState(false);
-  const [serviceForm, setServiceForm] = useState({
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [serviceForm, setServiceForm] = useState<Omit<ServiceOffering, 'id' | 'specialist_id'>>({
     service_name: '',
     description: '',
-    estimated_days: 1,
-    price: 0,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -55,16 +64,73 @@ export default function CreateSpecialistPage() {
     }
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Company name is required';
+    if (!formData.contact_email.trim()) newErrors.contact_email = 'Email is required';
+    if (!formData.contact_email.includes('@')) newErrors.contact_email = 'Invalid email format';
+    if (formData.service_offerings?.length === 0) {
+      newErrors.service_offerings = 'At least one service offering is required';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
     setLoading(true);
     try {
       await dispatch(createSpecialist(formData)).unwrap();
       router.push('/specialists');
     } catch (error: any) {
-      console.error(error);
+      setErrors({ submit: error.message || 'Failed to create specialist' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleOpenServiceModal = (index?: number) => {
+    if (index !== undefined) {
+      setEditingIndex(index);
+      setServiceForm(formData.service_offerings![index]);
+    } else {
+      setEditingIndex(null);
+      setServiceForm({ service_name: '', description: '' });
+    }
+    setOpenServiceModal(true);
+  };
+
+  const handleCloseServiceModal = () => {
+    setOpenServiceModal(false);
+    setEditingIndex(null);
+    setServiceForm({ service_name: '', description: '' });
+  };
+
+  const handleAddService = () => {
+    if (!serviceForm.service_name.trim()) {
+      alert('Service name is required');
+      return;
+    }
+
+    if (editingIndex !== null) {
+      const updated = [...(formData.service_offerings || [])];
+      updated[editingIndex] = serviceForm;
+      setFormData((prev) => ({ ...prev, service_offerings: updated }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        service_offerings: [...(prev.service_offerings || []), serviceForm],
+      }));
+    }
+    handleCloseServiceModal();
+  };
+
+  const handleDeleteService = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      service_offerings: prev.service_offerings?.filter((_, i) => i !== index) || [],
+    }));
   };
 
   return (
@@ -89,6 +155,7 @@ export default function CreateSpecialistPage() {
             <Button
               variant="outlined"
               fullWidth
+              onClick={() => router.back()}
               sx={{
                 borderColor: '#1E40AF',
                 color: '#1E40AF',
@@ -98,7 +165,7 @@ export default function CreateSpecialistPage() {
                 borderRadius: '8px',
               }}
             >
-              Edit
+              Cancel
             </Button>
             <Button
               variant="contained"
@@ -114,10 +181,21 @@ export default function CreateSpecialistPage() {
                 '&:hover': { bgcolor: '#1E3A8A' },
               }}
             >
-              Publish
+              {loading ? 'Publishing...' : 'Publish'}
             </Button>
           </Box>
         </Box>
+
+        {errors.submit && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {errors.submit}
+          </Alert>
+        )}
+        {errors.service_offerings && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {errors.service_offerings}
+          </Alert>
+        )}
 
         <Grid container spacing={3}>
           {/* Left Column */}
@@ -182,6 +260,54 @@ export default function CreateSpecialistPage() {
               </Box>
             </Paper>
 
+            {/* Company Information */}
+            <Paper sx={{ p: 4, mb: 3, borderRadius: '12px' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#0F172A' }}>
+                Company Information
+              </Typography>
+              
+              <TextField
+                fullWidth
+                label="Company Name"
+                placeholder="Enter company name..."
+                value={formData.name}
+                onChange={(e) => handleInputChange('name', e.target.value)}
+                error={!!errors.name}
+                helperText={errors.name}
+                sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              />
+
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                placeholder="Enter email..."
+                value={formData.contact_email}
+                onChange={(e) => handleInputChange('contact_email', e.target.value)}
+                error={!!errors.contact_email}
+                helperText={errors.contact_email}
+                sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              />
+
+              <TextField
+                fullWidth
+                label="Phone Number"
+                placeholder="Enter phone number..."
+                value={formData.contact_phone || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, contact_phone: e.target.value }))}
+                sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              />
+
+              <TextField
+                fullWidth
+                label="Website URL"
+                placeholder="https://example.com"
+                value={formData.website_url || ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, website_url: e.target.value }))}
+                sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+              />
+            </Paper>
+
             {/* Description */}
             <Paper sx={{ p: 4, mb: 3, borderRadius: '12px' }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: '#0F172A' }}>
@@ -195,7 +321,7 @@ export default function CreateSpecialistPage() {
                 multiline
                 rows={4}
                 placeholder="Enter description..."
-                value={formData.description}
+                value={formData.description || ''}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -205,76 +331,68 @@ export default function CreateSpecialistPage() {
               />
             </Paper>
 
-            {/* Additional Offerings */}
-            <Paper sx={{ p: 4, mb: 3, borderRadius: '12px' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, color: '#0F172A' }}>
-                Additional Offerings
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#64748B', mb: 3 }}>
-                Enhance your service by adding additional offerings
-              </Typography>
-            </Paper>
-
-            {/* Company Secretary */}
+            {/* Service Offerings */}
             <Paper sx={{ p: 4, borderRadius: '12px' }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3, color: '#0F172A' }}>
-                Company Secretary
-              </Typography>
-
-              <Box sx={{ display: 'flex', gap: 3 }}>
-                {/* Profile */}
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Box
-                    sx={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: '50%',
-                      bgcolor: '#E0E7FF',
-                    }}
-                  />
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        Grace Lam
-                      </Typography>
-                      <Chip
-                        label="Owner"
-                        size="small"
-                        sx={{
-                          bgcolor: '#1E293B',
-                          color: 'white',
-                          height: 20,
-                          fontSize: '11px',
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
-                      Corpsec Services Sdn Bhd
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      SSM Owner • 8.0
-                    </Typography>
-                  </Box>
-                </Box>
-
-                {/* Certified Badge */}
-                <Box sx={{ ml: 'auto' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    Certified Company Secretary
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Box sx={{ width: 40, height: 40, bgcolor: '#F1F5F9', borderRadius: '8px' }} />
-                    <Box sx={{ width: 40, height: 40, bgcolor: '#F1F5F9', borderRadius: '8px' }} />
-                    <Box sx={{ width: 40, height: 40, bgcolor: '#F1F5F9', borderRadius: '8px' }} />
-                  </Box>
-                </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600, color: '#0F172A' }}>
+                  Service Offerings
+                </Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => handleOpenServiceModal()}
+                  sx={{
+                    bgcolor: '#1E40AF',
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    '&:hover': { bgcolor: '#1E3A8A' },
+                  }}
+                >
+                  Add Service
+                </Button>
               </Box>
 
-              <Typography variant="body2" sx={{ color: '#475569', mt: 3, lineHeight: 1.7 }}>
-                A company secretarial service handled by Asim, who believes that every client is unique and 
-                has their own business needs. Guided by his motto "Simplifying confidence journey, inspired 
-                by the spirit of entrepreneurship," Asim treats every client's business as if it were his own.
-              </Typography>
+              {formData.service_offerings && formData.service_offerings.length > 0 ? (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#F8FAFC' }}>
+                        <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Service Name</TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Description</TableCell>
+                        <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {formData.service_offerings.map((service, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{service.service_name}</TableCell>
+                          <TableCell sx={{ color: '#64748B' }}>{service.description || '-'}</TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenServiceModal(index)}
+                              sx={{ color: '#1E40AF' }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteService(index)}
+                              sx={{ color: '#EF4444' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Typography variant="body2" sx={{ color: '#94A3B8', textAlign: 'center', py: 3 }}>
+                  No services added yet. Click "Add Service" to get started.
+                </Typography>
+              )}
             </Paper>
           </Grid>
 
@@ -343,7 +461,7 @@ export default function CreateSpecialistPage() {
       {/* Service Modal */}
       <Dialog
         open={openServiceModal}
-        onClose={() => setOpenServiceModal(false)}
+        onClose={handleCloseServiceModal}
         maxWidth="sm"
         fullWidth
         PaperProps={{
@@ -352,9 +470,9 @@ export default function CreateSpecialistPage() {
       >
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Edit Service
+            {editingIndex !== null ? 'Edit Service' : 'Add Service'}
           </Typography>
-          <IconButton onClick={() => setOpenServiceModal(false)}>
+          <IconButton onClick={handleCloseServiceModal}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
@@ -362,11 +480,11 @@ export default function CreateSpecialistPage() {
           <Box sx={{ pt: 2 }}>
             <TextField
               fullWidth
-              label="Title"
-              sx={{ mb: 3 }}
-              InputProps={{
-                sx: { borderRadius: '8px' },
-              }}
+              label="Service Name"
+              placeholder="Enter service name..."
+              value={serviceForm.service_name}
+              onChange={(e) => setServiceForm((prev) => ({ ...prev, service_name: e.target.value }))}
+              sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
 
             <TextField
@@ -374,58 +492,16 @@ export default function CreateSpecialistPage() {
               label="Description"
               multiline
               rows={3}
-              sx={{ mb: 3 }}
-              helperText="0/500 words"
-              InputProps={{
-                sx: { borderRadius: '8px' },
-              }}
+              placeholder="Enter service description..."
+              value={serviceForm.description || ''}
+              onChange={(e) => setServiceForm((prev) => ({ ...prev, description: e.target.value }))}
+              sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
             />
-
-            <TextField
-              fullWidth
-              label="Estimated Completion Time (Days)"
-              type="number"
-              defaultValue={1}
-              sx={{ mb: 3 }}
-              InputProps={{
-                sx: { borderRadius: '8px' },
-              }}
-            />
-
-            <TextField
-              fullWidth
-              label="Price"
-              type="number"
-              defaultValue={0}
-              InputProps={{
-                sx: { borderRadius: '8px' },
-                startAdornment: <Typography sx={{ mr: 1 }}>MYR</Typography>,
-              }}
-              sx={{ mb: 3 }}
-            />
-
-            <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 600 }}>
-              Additional Offerings
-            </Typography>
-
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 3 }}>
-              {['Company Secretary Subscription', 'CTC Copies', 'eSignature'].map((item) => (
-                <Chip
-                  key={item}
-                  label={item}
-                  onDelete={() => {}}
-                  sx={{
-                    bgcolor: '#F1F5F9',
-                    '& .MuiChip-deleteIcon': { color: '#64748B' },
-                  }}
-                />
-              ))}
-            </Box>
 
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
               <Button
                 variant="outlined"
-                onClick={() => setOpenServiceModal(false)}
+                onClick={handleCloseServiceModal}
                 sx={{
                   textTransform: 'none',
                   borderColor: '#E2E8F0',
@@ -437,6 +513,7 @@ export default function CreateSpecialistPage() {
               </Button>
               <Button
                 variant="contained"
+                onClick={handleAddService}
                 sx={{
                   textTransform: 'none',
                   bgcolor: '#1E40AF',
@@ -444,7 +521,7 @@ export default function CreateSpecialistPage() {
                   '&:hover': { bgcolor: '#1E3A8A' },
                 }}
               >
-                Confirm
+                {editingIndex !== null ? 'Update' : 'Add'}
               </Button>
             </Box>
           </Box>
