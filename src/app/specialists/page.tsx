@@ -35,6 +35,7 @@ import {
   FileDownload as ExportIcon,
 } from '@mui/icons-material';
 import { useDebounce } from '@/hooks/useDebounce';
+import { exportSpecialistsToXLSX } from '@/utils/exportUtils';
 
 export default function SpecialistsPage() {
   const router = useRouter();
@@ -98,6 +99,10 @@ export default function SpecialistsPage() {
       dispatch(fetchSpecialists(filters));
     }
     handleMenuClose();
+  };
+
+  const handleExport = () => {
+    exportSpecialistsToXLSX(specialists, 'specialists');
   };
 
   const getStatusColor = (status: SpecialistStatus) => {
@@ -179,6 +184,7 @@ export default function SpecialistsPage() {
             <Button
               variant="contained"
               startIcon={<ExportIcon />}
+              onClick={handleExport}
               sx={{
                 bgcolor: '#334155',
                 '&:hover': { bgcolor: '#1E293B' },

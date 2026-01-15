@@ -32,6 +32,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  Close as RemoveImageIcon,
 } from '@mui/icons-material';
 
 export default function CreateSpecialistPage() {
@@ -56,6 +57,40 @@ export default function CreateSpecialistPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<{ file: File; preview: string } | null>(null);
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      setErrors((prev) => ({ ...prev, image: 'Only PNG, JPG, or JPEG files are allowed' }));
+      return;
+    }
+
+    // Validate file size (4MB max)
+    if (file.size > 4 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, image: 'File size must be less than 4MB' }));
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const preview = e.target?.result as string;
+      setUploadedImage({ file, preview });
+      if (errors.image) {
+        setErrors((prev) => ({ ...prev, image: '' }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setUploadedImage(null);
+  };
 
   const handleInputChange = (field: keyof CreateSpecialistDto, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -202,62 +237,95 @@ export default function CreateSpecialistPage() {
           <Grid item xs={12} md={8}>
             {/* Image Upload Section */}
             <Paper sx={{ p: 4, mb: 3, borderRadius: '12px' }}>
-              <Box
-                sx={{
-                  border: '2px dashed #CBD5E1',
-                  borderRadius: '12px',
-                  p: 6,
-                  textAlign: 'center',
-                  bgcolor: '#F8FAFC',
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: '#F1F5F9' },
-                }}
-              >
-                <UploadIcon sx={{ fontSize: 48, color: '#94A3B8', mb: 2 }} />
-                <Typography variant="body2" sx={{ color: '#64748B' }}>
-                  Upload an image for your service listing in PNG, JPG or JPEG
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  up to 4MB
-                </Typography>
-              </Box>
-
-              {/* Sample Images */}
-              <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                <Box
-                  sx={{
-                    width: '48%',
-                    height: 200,
-                    borderRadius: '12px',
-                    bgcolor: '#1E293B',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontWeight: 600,
-                    fontSize: '18px',
-                  }}
-                >
-                  10 Best Company Secretarial in Johor Bahru
-                </Box>
-                <Box
-                  sx={{
-                    width: '48%',
-                    height: 200,
-                    borderRadius: '12px',
-                    bgcolor: '#DC2626',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    p: 3,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ color: 'white' }}>
-                    A Company Secretary Represents a Key Role in Any Business. This is Why
+              {errors.image && (
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  {errors.image}
+                </Alert>
+              )}
+              
+              {uploadedImage ? (
+                <Box sx={{ position: 'relative' }}>
+                  <Box
+                    component="img"
+                    src={uploadedImage.preview}
+                    alt="Uploaded preview"
+                    sx={{
+                      width: '100%',
+                      height: 300,
+                      objectFit: 'cover',
+                      borderRadius: '12px',
+                      mb: 2,
+                    }}
+                  />
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button
+                      variant="contained"
+                      component="label"
+                      startIcon={<UploadIcon />}
+                      sx={{
+                        bgcolor: '#1E40AF',
+                        flex: 1,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        '&:hover': { bgcolor: '#1E3A8A' },
+                      }}
+                    >
+                      Change Image
+                      <input
+                        hidden
+                        accept="image/png,image/jpeg,image/jpg"
+                        type="file"
+                        onChange={handleImageUpload}
+                      />
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={handleRemoveImage}
+                      startIcon={<RemoveImageIcon />}
+                      sx={{
+                        borderColor: '#EF4444',
+                        color: '#EF4444',
+                        flex: 1,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </Box>
+                  <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 2 }}>
+                    File: {uploadedImage.file.name} ({(uploadedImage.file.size / 1024).toFixed(2)} KB)
                   </Typography>
                 </Box>
-              </Box>
+              ) : (
+                <Box
+                  component="label"
+                  sx={{
+                    border: '2px dashed #CBD5E1',
+                    borderRadius: '12px',
+                    p: 6,
+                    textAlign: 'center',
+                    bgcolor: '#F8FAFC',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: '#F1F5F9' },
+                    display: 'block',
+                  }}
+                >
+                  <UploadIcon sx={{ fontSize: 48, color: '#94A3B8', mb: 2 }} />
+                  <Typography variant="body2" sx={{ color: '#64748B' }}>
+                    Upload an image for your service listing in PNG, JPG or JPEG
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                    up to 4MB
+                  </Typography>
+                  <input
+                    hidden
+                    accept="image/png,image/jpeg,image/jpg"
+                    type="file"
+                    onChange={handleImageUpload}
+                  />
+                </Box>
+              )}
             </Paper>
 
             {/* Company Information */}
